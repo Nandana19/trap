@@ -1,0 +1,74 @@
+import cv2
+import numpy as np
+import serial
+import time
+
+# Define the color range for white paper detection
+lower_white_color = np.array([0, 0, 200])  # Lower HSV value for white color
+upper_white_color = np.array([180, 30, 255])  # Upper HSV value for white color
+
+# Initialize the webcam
+cap = cv2.VideoCapture(0)
+
+if not cap.isOpened():
+    print("Error: Unable to access the webcam.")
+    exit()
+
+# Initialize the serial connection to NodeMCU
+ser = serial.Serial('COM3', 9600)  # Replace 'COM3' with the correct port and set the baud rate
+
+bug_detected = False  # Initialize the bug detection flag
+
+while True:
+    # Capture a frame from the webcam
+    ret, frame = cap.read()
+
+    if not ret:
+        print("Error: Unable to capture a frame.")
+        break
+
+    # Convert the frame to HSV color space
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Create a mask for white paper detection
+    mask_white = cv2.inRange(hsv, lower_white_color, upper_white_color)
+
+    # Apply a series of morphological operations to clean up the mask
+    mask_white = cv2.erode(mask_white, None, iterations=2)
+    mask_white = cv2.dilate(mask_white, None, iterations=2)
+
+    # Find contours in the mask
+    contours, _ = cv2.findContours(mask_white.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    for contour in contours:
+        if cv2.contourArea(contour) > 100:  # Adjust the area threshold as needed
+            x, y, w, h = cv2.boundingRect(contour)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)  # Yellow color for detected objects
+            cv2.putText(frame, "Bug Detected!", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+            bug_detected = True
+
+    # Display the frame with object detection
+    cv2.imshow('Object Detection', frame)
+
+    # Send 'S' or 'O' to NodeMCU
+    if bug_detected:
+        ser.write(b'S')
+    else:
+        ser.write(b'O')
+
+    # Press 'q' to exit the loop
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the webcam and close all OpenCV windows
+cap.release()
+cv2.destroyAllWindows()
+
+# Check if white paper was detected
+if bug_detected:
+    print("Bug Detected!")
+else:
+    print("Bug Not Detected")
+
+# Close the serial connection
+ser.close()
