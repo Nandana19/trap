@@ -1,0 +1,38 @@
+#include <ESP8266WiFi.h>
+
+const char* ssid = "uluppu indo";
+const char* password = "illa.too_bad";
+
+const int relayPin = D1; // Define the digital pin connected to the relay module
+
+void setup() {
+  Serial.begin(9600);
+  delay(10);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
+  Serial.println("Connected to WiFi");
+
+  // Initialize the relay pin as an OUTPUT
+  pinMode(relayPin, OUTPUT);
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    char signal = Serial.read();
+    
+    if (signal == 'S') {
+      // Activate the relay to run the motor
+      digitalWrite(relayPin, HIGH);       
+      Serial.println("Motor is running.");
+    } else if (signal == 'O') {
+      // Deactivate the relay to stop the motor
+      digitalWrite(relayPin, LOW);
+      Serial.println("Motor is stopped.");
+    }
+  }
+}
